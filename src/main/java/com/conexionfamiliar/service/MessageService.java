@@ -23,7 +23,6 @@ public class MessageService {
     private final GridFsTemplate gridFsTemplate;
     private final ReactiveKafkaProducerTemplate<String, String> kafkaProducer;
 
-    // 👇 Este es el ObjectMapper que convierte tu objeto Java a JSON
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Crear mensaje de texto
@@ -52,10 +51,10 @@ public class MessageService {
                 .flatMap(saved -> publishEvent("message.created", saved).thenReturn(saved));
     }
 
-    //  Aquí va el método publishEvent
+    // Publicar evento a Kafka
     private Mono<Void> publishEvent(String topic, Message msg) {
         try {
-            String payload = objectMapper.writeValueAsString(msg); // convierte Message a JSON
+            String payload = objectMapper.writeValueAsString(msg);
             return kafkaProducer.send(topic, payload).then();
         } catch (JsonProcessingException e) {
             return Mono.error(new RuntimeException("Error al serializar el mensaje", e));
@@ -77,5 +76,10 @@ public class MessageService {
                 throw new RuntimeException("Error al almacenar el archivo en GridFS", e);
             }
         });
+    }
+
+    // Este método debe ir dentro de la clase
+    public Flux<Message> getInbox(Long userId) {
+        return messageRepository.findByReceiverId(userId);
     }
 }
