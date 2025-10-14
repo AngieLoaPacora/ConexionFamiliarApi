@@ -1,31 +1,30 @@
 package com.conexionfamiliar.model.entity;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
-
-
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 
 @Data
-@AllArgsConstructor
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 @Document(collection = "messages")
-
 public class Message {
 
     @Id
-
-    private Long id;
-    private Long senderId;
-    private Long targetUserId;
-    private String title;
+    private String id;
+    private String senderId;
+    private String receiverId;
     private String text;
-    private String contentRef;  // gridfs id as String
-    private OffsetDateTime scheduleAt;
-    private OffsetDateTime createdAt;
-    private String type;  // text, audio, image
-    private String status;  // Sent, scheduled, read
+    private LocalDateTime createdAt;
+    private LocalDateTime scheduledAt;
+    private MessageStatus status;
+
+    public enum MessageStatus {
+        PENDING,
+        SENT,
+        READ,
+        DELIVERED
     }
+}

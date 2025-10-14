@@ -3,7 +3,9 @@ package com.conexionfamiliar.dto;
 import lombok.Data;
 
 @Data
-public class AuthRequest {
+public class UserRequest {
+    private String name;
     private String email;
     private String password;
+    private String role;
 }

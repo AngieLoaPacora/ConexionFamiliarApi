@@ -1,4 +1,4 @@
 package com.conexionfamiliar.service.impl;
 
-public class FamiluServiceImpl {
+public class FamilyServiceImpl {
 }

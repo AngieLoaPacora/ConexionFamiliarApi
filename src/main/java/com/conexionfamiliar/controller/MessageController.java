@@ -1,5 +1,6 @@
 package com.conexionfamiliar.controller;
 
+import com.conexionfamiliar.dto.MessageRequest;
 import com.conexionfamiliar.model.entity.Message;
 import com.conexionfamiliar.service.MessageService;
 import lombok.RequiredArgsConstructor;
@@ -18,22 +19,40 @@ public class MessageController {
 
     private final MessageService messageService;
 
+    // Enviar mensaje (texto o multimedia)
     @PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
-    public Mono<ResponseEntity<Message>> create(@RequestPart("meta") Mono<Message> meta,
-                                                @RequestPart(value = "file", required = false) Flux<FilePart> file) {
+    public Mono<ResponseEntity<Message>> sendMessage(
+            @ModelAttribute MessageRequest request,
+            @RequestPart(value = "files", required = false) Flux<FilePart> files) {
 
-        return meta.flatMap(m -> {
-            if (file != null) {
-                return messageService.createMediaMessage(m, file);
-            } else {
-                return messageService.createTextMessage(m);
-            }
-        }).map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
+        // Si vienen archivos, tratamos como multimedia
+        if (files != null) {
+            Message msg = Message.builder()
+                    .senderId(request.getSenderId())
+                    .receiverId(request.getReceiverId())
+                    .text("Archivo adjunto")
+                    .build();
+            return messageService.createMediaMessage(msg, files)
+                    .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
+        }
+
+        // Si no hay archivos, tratamos como texto simple
+        return messageService.send(request)
+                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
     }
 
-    @GetMapping
-    public Flux<Message> inbox(@RequestParam Long userId,
+    // Obtener mensajes de la bandeja de entrada
+    @GetMapping("/{receiverId}")
+    public Flux<Message> inbox(@PathVariable String receiverId,
                                @RequestParam(defaultValue = "20") int limit) {
-        return messageService.getInbox(userId).take(limit);
+        return messageService.inbox(receiverId).take(limit);
+    }
+
+    // Marcar mensaje como leído
+    @PatchMapping("/{messageId}/read")
+    public Mono<ResponseEntity<Message>> markAsRead(@PathVariable String messageId,
+                                                    @RequestParam String readerId) {
+        return messageService.markRead(messageId, readerId)
+                .map(updated -> ResponseEntity.ok(updated));
     }
 }
