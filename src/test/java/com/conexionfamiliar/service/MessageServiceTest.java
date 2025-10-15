@@ -1,46 +1,70 @@
 package com.conexionfamiliar.service;
+
 import com.conexionfamiliar.dto.MessageRequest;
+import com.conexionfamiliar.event.producer.KafkaProducerService;
 import com.conexionfamiliar.model.entity.Message;
 import com.conexionfamiliar.repository.MessageRepository;
-import com.conexionfamiliar.event.producer.KafkaProducerService;
+import com.conexionfamiliar.service.impl.MessageServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class MessageServiceTest {
 
-    MessageRepository repository = Mockito.mock(MessageRepository.class);
-    ReactiveRedisTemplate<String,String> redis = Mockito.mock(ReactiveRedisTemplate.class);
-    KafkaProducerService kafka = Mockito.mock(KafkaProducerService.class);
-    com.conexionfamiliar.service.impl.MessageServiceImpl service;
+    @Mock
+    private MessageRepository repository;
+
+    @Mock
+    private ReactiveRedisTemplate<String, String> redisTemplate;
+
+    @Mock
+    private ReactiveValueOperations<String, String> valueOps;
+
+    @Mock
+    private KafkaProducerService kafkaProducerService;
+
+    private MessageServiceImpl service;
 
     @BeforeEach
-    void setup() {
-        service = new com.conexionfamiliar.service.impl.MessageServiceImpl(repository, redis, kafka);
+    void setUp() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        service = new MessageServiceImpl(repository, redisTemplate, kafkaProducerService);
     }
 
     @Test
-    void sendMessage_savesAndPublishes() {
-        Message msg = new Message();
-        msg.setId("1");
-        msg.setText("Hola");
-        when(repository.save(any())).thenReturn(Mono.just(msg));
-        when(redis.opsForValue()).thenReturn(null); // simplificado: improve for real tests
-        when(kafka.publishMessageCreated(any())).thenReturn(Mono.empty());
-
+    void send_shouldSaveAndPublishMessage() {
+        // Datos simulados
         MessageRequest req = new MessageRequest();
-        req.setSenderId("u1");
-        req.setReceiverId("u2");
-        req.setText("Hola");
+        req.setSenderId("papa");
+        req.setReceiverId("nina");
+        req.setText("Hola, te quiero mucho ❤️");
 
+        Message savedMessage = Message.builder()
+                .id("1")
+                .senderId("papa")
+                .receiverId("nina")
+                .text("Hola, te quiero mucho ❤️")
+                .build();
+
+        // Simulaciones
+        when(repository.save(any())).thenReturn(Mono.just(savedMessage));
+        when(kafkaProducerService.publishMessageCreated(any())).thenReturn(Mono.empty());
+        when(valueOps.set(any(), any())).thenReturn(Mono.just(true));
+
+        // Verificación reactiva
         StepVerifier.create(service.send(req))
-                .expectNextMatches(m -> m.getText().equals("Hola"))
+                .expectNextMatches(msg -> msg.getText().contains("Hola"))
                 .verifyComplete();
     }
 }
